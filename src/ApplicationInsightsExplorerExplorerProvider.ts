@@ -61,14 +61,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 	}
 
 	onActiveEditorChanged(): void {
-		if ((this.panel && this.panel.visible) ||
-			(this.panelConfig && this.panelConfig.visible) ||
-			(vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.uri.scheme === 'file' && vscode.window.activeTextEditor.document.languageId === 'xml')) {
-			vscode.commands.executeCommand('setContext', 'CustomPolicyExplorerEnabled', true);
-		}
-		else {
-			vscode.commands.executeCommand('setContext', 'CustomPolicyExplorerEnabled', false);
-		}
+		vscode.commands.executeCommand('setContext', 'CustomPolicyExplorerEnabled', true);
 	}
 
 	parseTree(): void {
@@ -107,6 +100,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 		var url = 'https://api.applicationinsights.io/v1/apps/' + config.id
 			+ '/events/traces?timespan=' + timespan + "PT" + config.duration + 'H'
 			+ "&$filter=startswith(customDimensions/EventName, 'Journey Recorder')"
+			+ (config.tenantId && ` and (contains(trace/message, '${config.tenantId}') or contains(customDimensions/Tenant, '${config.tenantId}'))`)
 			+ '&$top=' + config.maxRows
 			+ '&$orderby=timestamp desc,id&$select=id,timestamp,cloud/roleInstance,trace/message,customDimensions'
 
@@ -702,6 +696,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 			config.update("maxRows", Number(message.maxRows), configurationTarget);
 			config.update("timespan", Number(message.timespan), configurationTarget);
 			config.update("duration", Number(message.duration), configurationTarget);
+			config.update("tenantId", message.tenantId, configurationTarget);
 
 			this.panelConfig.dispose();
 
@@ -774,13 +769,14 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 			const maxRows = document.getElementById('maxRows');
 			const duration = document.getElementById('duration');
 			const timespan = document.getElementById('timespan');
-			
+			const tenantId = document.getElementById('tenantId');
 			vscode.postMessage({
 				id: id.value,
 				key: key.value, 
 				maxRows: maxRows.value, 
 				timespan: timespan.value,
 				duration: duration.value,
+				tenantId: tenantId.value
 			})
 		}
 
@@ -867,6 +863,10 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 		<tr>
 			<td>The duration of events to return (in hours)</td>
 			<td><input type="number" id="duration" value="` + config.duration + `"  min="1" max="72" size="40" style="min-width: 50px;"></td>
+		</tr>
+		<tr>
+			<td>Tenant Id</td>
+			<td><input type="text" id="tenantId" value="` + config.tenantId + `" size="40"></td>
 		</tr>
 		<tr>
 			<td></td>
