@@ -267,6 +267,11 @@
                     "default": "",
                     "description": "Correlation Id"
                 },
+                "aadb2c.ai.messageFilter": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Message filter"
+                },
                 "aadb2c.graph.clientid": {
                     "type": "string",
                     "default": "",

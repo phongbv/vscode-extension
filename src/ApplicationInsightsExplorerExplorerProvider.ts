@@ -124,6 +124,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 			+ "&$filter=startswith(customDimensions/EventName, 'Journey Recorder')"
 			+ (config.tenantId && ` and (contains(trace/message, '${config.tenantId}') or contains(customDimensions/Tenant, '${config.tenantId}'))`)
 			+ (config.correlationId && ` and contains(customDimensions/CorrelationId, '${config.correlationId}')`)
+			+ (config.messageFilter && ` and contains(trace/message, '${config.messageFilter}')`)
 			+ '&$top=' + config.maxRows
 			+ '&$orderby=timestamp desc,id&$select=id,timestamp,cloud/roleInstance,trace/message,customDimensions'
 		console.log(url);
@@ -722,6 +723,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 			config.update("tenantId", message.tenantId, configurationTarget);
 			config.update("startTime", message.startTime, configurationTarget);
 			config.update("correlationId", message.correlationId, configurationTarget);
+			config.update("messageFilter", message.messageFilter, configurationTarget);
 			this.panelConfig.dispose();
 
 			// Trick, place a delay and the values get loaded
@@ -788,6 +790,11 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 		}
 	</style>
 	<script>
+		function resetFilter(){
+			document.getElementById('startTime').value = '';
+			document.getElementById('correlationId').value = '';
+			document.getElementById('messageFilter').value = '';
+		}
 		function save() {
 			const vscode = acquireVsCodeApi();
 			const id = document.getElementById('id');
@@ -806,7 +813,8 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 				duration: duration.value,
 				tenantId: tenantId.value,
 				startTime: startTime.value,
-				correlationId: correlationId.value
+				correlationId: correlationId.value,
+				messageFilter: document.getElementById('messageFilter').value
 			})
 		}
 
@@ -887,6 +895,10 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 			<td><input type="text" id="correlationId" value="` + config.correlationId + `"  min="1" max="74" size="40" style="min-width: 50px;"></td>
 		</tr>
 		<tr>
+			<td>Message Filter</td>
+			<td><input type="text" id="messageFilter" value="` + config.messageFilter + `"  min="1" max="74" size="40" style="min-width: 50px;"></td>
+		</tr>
+		<tr>
 			<td>Returns events from</td>
 			<td><select id="timespan">
 				`
@@ -908,7 +920,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 		</tr>
 		<tr>
 			<td></td>
-			<td><input type="button" onclick="save()" id="save" value="Save"></td>
+			<td><input type="button" onclick="save()" id="save" value="Save"> <input type="button" onclick="resetFilter()" id="resetCustomFilter" value="Reset custom filter"></td>
 		</tr>
 		</table>
 
