@@ -247,6 +247,11 @@
                     "default": 0,
                     "description": "Returns events from (in days)"
                 },
+                "aadb2c.ai.startTime": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Start time"
+                },
                 "aadb2c.ai.duration": {
                     "type": "integer",
                     "default": 12,
@@ -256,6 +261,11 @@
                     "type": "string",
                     "default": "",
                     "description": "Tentant id"
+                },
+                "aadb2c.ai.correlationId": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Correlation Id"
                 },
                 "aadb2c.graph.clientid": {
                     "type": "string",

@@ -64,6 +64,16 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 		vscode.commands.executeCommand('setContext', 'CustomPolicyExplorerEnabled', true);
 	}
 
+	createTimeSpan(fromDate, toDate): string {
+		// Convert dates to ISO 8601 format
+		var fromISOString = fromDate.toISOString();
+		var toISOString = toDate.toISOString();
+	
+		// Concatenate the dates with a slash (/) separator
+		var timeSpan = fromISOString + "/" + toISOString;
+	
+		return timeSpan;
+	}
 	parseTree(): void {
 		this.error = 'loading';
 
@@ -93,17 +103,30 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 		if (config.timespan > 0) {
 			let d = new Date();
 			d.setDate(d.getDate() - config.timespan);
+			timespan = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+			// Get specific time
+			if (config.startTime) {
+				var hoursMinutes = config.startTime.split(':');
 
-			timespan = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate() + "/";
+				// Update the current date with the extracted time value
+				d.setHours(parseInt(hoursMinutes[0], 10));
+				d.setMinutes(parseInt(hoursMinutes[1], 10));
+				var toDate = new Date(d.getTime() + config.duration * 60 * 60 * 1000)
+				timespan = this.createTimeSpan(d, toDate);
+			} else {
+				// Get last n hours
+				timespan += "/PT" + config.duration + 'H'
+			}
 		}
 
 		var url = 'https://api.applicationinsights.io/v1/apps/' + config.id
-			+ '/events/traces?timespan=' + timespan + "PT" + config.duration + 'H'
+			+ '/events/traces?timespan=' + timespan
 			+ "&$filter=startswith(customDimensions/EventName, 'Journey Recorder')"
 			+ (config.tenantId && ` and (contains(trace/message, '${config.tenantId}') or contains(customDimensions/Tenant, '${config.tenantId}'))`)
+			+ (config.correlationId && ` and contains(customDimensions/CorrelationId, '${config.correlationId}')`)
 			+ '&$top=' + config.maxRows
 			+ '&$orderby=timestamp desc,id&$select=id,timestamp,cloud/roleInstance,trace/message,customDimensions'
-
+		console.log(url);
 		// Prepare the Application insights call
 		var options = {
 			url: url,
@@ -122,7 +145,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 					info = JSON.parse(body);
 				}
 				catch (e: any) {
-					
+
 					try {
 						// I'm unclear why this replace exists, but removing it fixes the unexpected token c error
 						// Instead of immediately going for the replace, try parsing the body as is and then falling back to the replace as a last resort
@@ -183,7 +206,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 								if (this.AppInsightsItems[i].OrchestrationStep.indexOf(element + ",") < 1) {
 									this.AppInsightsItems[i].OrchestrationStep += ", " + element
 								}
-							});							
+							});
 						}
 						else {
 							this.AppInsightsItems[i].Data = this.AppInsightsItems[i + 1].Data + this.AppInsightsItems[i].Data
@@ -192,13 +215,13 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 								if (this.AppInsightsItems[i + 1].OrchestrationStep.indexOf(element + ",") < 1) {
 									this.AppInsightsItems[i + 1].OrchestrationStep += ", " + element
 								}
-							});							
+							});
 						}
 
 						// Only add combination text if combined the last entry together
-                        if (this.AppInsightsItems[i].Data.endsWith("]")) {
-                            this.AppInsightsItems[i].Id += " (The report shows a combination of two Application Insight entities)";
-                        }						
+						if (this.AppInsightsItems[i].Data.endsWith("]")) {
+							this.AppInsightsItems[i].Id += " (The report shows a combination of two Application Insight entities)";
+						}
 
 						if (this.AppInsightsItems[i].OrchestrationStep.length > 0 &&
 							(!this.AppInsightsItems[i].OrchestrationStep.startsWith("Step")))
@@ -514,8 +537,8 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 						tokeValidation = "<a href='https://jwt.ms/#id_token=" + tokeValidation + array[0] + "'>https://jwt.ms</a>";
 					}
 					else if (collection[i].ContentType.toLowerCase() === 'json') {
-						array[0] = array[0].replace(/[ ]*,"[ ]*|[ ]+/g,",<br />&nbsp;&nbsp;&nbsp;\"").replace("{", "{<br />&nbsp;&nbsp;&nbsp;").replace("}", "<br />}");
-				}
+						array[0] = array[0].replace(/[ ]*,"[ ]*|[ ]+/g, ",<br />&nbsp;&nbsp;&nbsp;\"").replace("{", "{<br />&nbsp;&nbsp;&nbsp;").replace("}", "<br />}");
+					}
 
 					tokens += '<li><b>' + array[2] + " </b>(" + collection[i].ContentType + ") " + tokeValidation + ":<pre><code>" + array[0] + '</code></pre></li>';
 				}
@@ -697,7 +720,8 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 			config.update("timespan", Number(message.timespan), configurationTarget);
 			config.update("duration", Number(message.duration), configurationTarget);
 			config.update("tenantId", message.tenantId, configurationTarget);
-
+			config.update("startTime", message.startTime, configurationTarget);
+			config.update("correlationId", message.correlationId, configurationTarget);
 			this.panelConfig.dispose();
 
 			// Trick, place a delay and the values get loaded
@@ -739,7 +763,9 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 		var timespanOptions = '';
 
 		for (var i = 0; i < 61; i++) {
-			timespanOptions += "<option value='" + i + "' " + ((i == config.timespan) ? 'selected' : '') + ">" + ((i == 0) ? 'Now' : i + ' days ago') + "</option>";
+			const date = new Date(new Date().getTime() - i * (1000 * 60 * 60 * 24));
+			const timeStr = date.getFullYear().toString() + "-" + this.pad(date.getMonth() + 1) + "-" + this.pad(date.getDate());
+			timespanOptions += "<option value='" + i + "' " + ((i == config.timespan) ? 'selected' : '') + ">" + ((i == 0) ? 'Now' : i + ' days ago (' + timeStr + ')') + "</option>";
 		}
 
 		return `<!DOCTYPE html>
@@ -770,13 +796,17 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 			const duration = document.getElementById('duration');
 			const timespan = document.getElementById('timespan');
 			const tenantId = document.getElementById('tenantId');
+			const startTime = document.getElementById('startTime');
+			const correlationId = document.getElementById('correlationId');
 			vscode.postMessage({
 				id: id.value,
 				key: key.value, 
 				maxRows: maxRows.value, 
 				timespan: timespan.value,
 				duration: duration.value,
-				tenantId: tenantId.value
+				tenantId: tenantId.value,
+				startTime: startTime.value,
+				correlationId: correlationId.value
 			})
 		}
 
@@ -853,12 +883,20 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
 			<td><input type="number" id="maxRows" value="` + config.maxRows + `"  min="1" max="50" style="min-width: 50px;"></td>
 		</tr>
 		<tr>
+			<td>Correlation Id</td>
+			<td><input type="text" id="correlationId" value="` + config.correlationId + `"  min="1" max="74" size="40" style="min-width: 50px;"></td>
+		</tr>
+		<tr>
 			<td>Returns events from</td>
 			<td><select id="timespan">
 				`
 			+ timespanOptions +
 			`
 	  		</select></td>
+		</tr>
+		<tr>
+			<td>Starting time</td>
+			<td><input type="time" id="startTime" value="` + config.startTime + `"  min="1" max="72" size="40" style="min-width: 50px;"></td>
 		</tr>
 		<tr>
 			<td>The duration of events to return (in hours)</td>
