@@ -183,7 +183,17 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
                             }
                             let message = "";
                             for (let i = logMessage.values.length - 1; i >= 0; i--) {
-                                message += logMessage.values[i].trace.message;
+                                if (appInsightResponseModel == null) {
+                                    appInsightResponseModel = JSON.parse(JSON.stringify(logMessage.values[i]));
+                                }
+                                const currentMessage = logMessage.values[i].trace.message;
+                                message += currentMessage;
+                                if (currentMessage && currentMessage.startsWith("[")) {
+                                    appInsightResponseModel.trace.message = message;
+                                    processed.push(appInsightResponseModel);
+                                    appInsightResponseModel = null;
+                                    message = "";
+                                }
                             }
                             appInsightResponseModel.trace.message = message;
                             processed.push(appInsightResponseModel);
