@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {ConfigurationTarget} from 'vscode';
+import { ConfigurationTarget } from 'vscode';
 import groupByMultilevel from "./CollectionUtil";
 
 const clipboardy = require('clipboardy');
@@ -176,24 +176,25 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
                             "roleInstance",
                         ]);
                         for (const logMessage of logMessages) {
-                            let appInsightResponseModel = JSON.parse(JSON.stringify(logMessage.values[0]));
                             if (logMessage.values.length === 1) {
-                                processed.push(appInsightResponseModel);
+                                processed.push(JSON.parse(JSON.stringify(logMessage.values[0])));
                                 continue;
                             }
                             let message = "";
+                            let appInsightResponseModel = null;
                             for (let i = logMessage.values.length - 1; i >= 0; i--) {
-                                if (appInsightResponseModel == null) {
-                                    appInsightResponseModel = JSON.parse(JSON.stringify(logMessage.values[i]));
-                                }
                                 const currentMessage = logMessage.values[i].trace.message;
-                                message += currentMessage;
-                                if (currentMessage && currentMessage.startsWith("[")) {
-                                    appInsightResponseModel.trace.message = message;
-                                    processed.push(appInsightResponseModel);
-                                    appInsightResponseModel = null;
-                                    message = "";
+                                if (currentMessage.startsWith("[")) {
+                                    if (appInsightResponseModel) {
+                                        appInsightResponseModel.trace.message = message;
+                                        processed.push(appInsightResponseModel);
+                                    }
+                                    appInsightResponseModel = JSON.parse(JSON.stringify(logMessage.values[i]));
+                                    message = currentMessage;
+                                } else {
+                                    message += currentMessage;
                                 }
+
                             }
                             appInsightResponseModel.trace.message = message;
                             processed.push(appInsightResponseModel);
@@ -202,7 +203,7 @@ export default class ApplicationInsightsExplorerExplorerProvider implements vsco
                     return processed;
                 }
 
-                let info = {...aiReponse, value: mergeStep(aiReponse.value)};
+                let info = { ...aiReponse, value: mergeStep(aiReponse.value) };
                 this.AppInsightsItems = [];
                 for (var i = 0; i < info.value.length; i++) {
                     var element = info.value[i];
